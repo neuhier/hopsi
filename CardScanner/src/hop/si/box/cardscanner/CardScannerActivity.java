@@ -1,5 +1,6 @@
 package hop.si.box.cardscanner;
 
+import hop.si.box.cardscanner.util.PictureManipulator;
 import hop.si.box.cardscanner.util.PictureSaver;
 
 import java.io.File;
@@ -9,6 +10,8 @@ import java.io.IOException;
 import java.util.List;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
 import android.hardware.Camera.PictureCallback;
@@ -52,8 +55,11 @@ public class CardScannerActivity extends Activity  {
 	        }
 
 	        try {
+	        	Bitmap bitmapPicture = BitmapFactory.decodeByteArray(data, 0, data.length);
+	        	Bitmap small = PictureManipulator.crop(bitmapPicture, 1000, 500);
+	        	 
 	            FileOutputStream fos = new FileOutputStream(pictureFile);
-	            fos.write(data);
+	            small.compress(Bitmap.CompressFormat.PNG, 90, fos);
 	            fos.close();
 	        } catch (FileNotFoundException e) {
 	            Log.d(LOG_TAG, "File not found: " + e.getMessage());
