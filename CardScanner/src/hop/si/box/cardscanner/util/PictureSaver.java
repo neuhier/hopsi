@@ -7,6 +7,14 @@ import java.util.Date;
 import android.os.Environment;
 import android.util.Log;
 
+
+/**
+ * This class creates new files on the sd-card to store images in.
+ * (dont think we need that in the final app). Check your sd-cards subfolders to find the images taken with the app.
+ * 
+ * @author Basti Hoffmeister
+ *
+ */
 public class PictureSaver {
 	
 	public static final int MEDIA_TYPE_IMAGE = 1;

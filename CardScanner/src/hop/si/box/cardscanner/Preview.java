@@ -9,6 +9,13 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
+/**
+ * For some reason the camera doesn't seem to work without displaying a preview of the cameras view.
+ * That is done using this class. It sets up the display in portrait orientation and activates the autofocus.
+ * 
+ * @author Basti Hoffmeister
+ *
+ */
 public class Preview extends SurfaceView implements SurfaceHolder.Callback, AutoFocusCallback{
 	
 	private SurfaceHolder mHolder;

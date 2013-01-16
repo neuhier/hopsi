@@ -17,6 +17,17 @@ import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 
+
+/**
+ * Main class for the app.
+ * 1. Starts the back-side-camera when the app is started (needs the preview class for that).
+ * 2. Attaches an preview object to the gui.
+ * 3. A picture is taken whenever the user touches the display. (finally: A pic should be taken every x seconds.)
+ *  * 
+ * @author Basti Hoffmeister
+ *
+ */
+
 public class CardScannerActivity extends Activity  {
 
 	private Camera cam;
@@ -25,6 +36,10 @@ public class CardScannerActivity extends Activity  {
 	public static final int MEDIA_TYPE_IMAGE = 1;
 	public static final int MEDIA_TYPE_VIDEO = 2;
 
+	/**
+	 * Callback to recognize whenever a picture is taken.
+	 * Uses the class PictureSaver to create a new file where the picture is stored.
+	 */
 	private PictureCallback mPicture = new PictureCallback() {
 		@Override
 		public void onPictureTaken(byte[] data, Camera camera) {
@@ -49,6 +64,9 @@ public class CardScannerActivity extends Activity  {
 		}
 	};
 
+	/**
+	 * Initializing the app. Get the camera -> setup the preview (GUI). 
+	 */
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -71,7 +89,8 @@ public class CardScannerActivity extends Activity  {
 	}
 
 	/**
-	 * Initialize the camera.
+	 * Initialize the camera. Checks all cameras until a back-side-camera is found.
+	 * The public field <b> cam </b> stores the used camera.
 	 * 
 	 * @return true if a camera could be opened.
 	 */
@@ -140,6 +159,10 @@ public class CardScannerActivity extends Activity  {
 		}
 	}
 
+	
+	/**
+	 * Release the camera whenever the user leaves the app. (IMPORTANT! Else a restart is needed to open the camera again.)
+	 */
 	@Override
 	protected void onPause() {
 		super.onPause();
