@@ -11,6 +11,7 @@ import java.util.List;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.CompressFormat;
 import android.graphics.BitmapFactory;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
@@ -33,11 +34,11 @@ import android.widget.FrameLayout;
 
 public class CardScannerActivity extends Activity  {
 
-	private Camera cam;
+	private Camera cam; // The camera to use. Initialized by initCamera
+	public int cameraNo; // Which camera is used?
 	private String LOG_TAG = "CardScannerActivity";
-	private Preview mPreview;
-	public static final int MEDIA_TYPE_IMAGE = 1;
-	public static final int MEDIA_TYPE_VIDEO = 2;
+	private Preview mPreview; // Preview object. Used for the display.
+	public static final int MEDIA_TYPE_IMAGE = 1; // 
 
 	/**
 	 * Callback to recognize whenever a picture is taken.
@@ -56,7 +57,7 @@ public class CardScannerActivity extends Activity  {
 
 	        try {
 	        	Bitmap bitmapPicture = BitmapFactory.decodeByteArray(data, 0, data.length);
-	        	Bitmap small = PictureManipulator.crop(bitmapPicture, 1000, 500);
+	        	Bitmap small = PictureManipulator.crop(bitmapPicture, bitmapPicture.getWidth(), 200);
 	        	 
 	            FileOutputStream fos = new FileOutputStream(pictureFile);
 	            small.compress(Bitmap.CompressFormat.PNG, 90, fos);
@@ -107,6 +108,10 @@ public class CardScannerActivity extends Activity  {
 		if (nCams == 1) { // If there is only one camera try to open it
 			try {
 				cam = Camera.open();
+				cameraNo = 0;
+				configureCamera(cam);
+				
+				return true;
 			} catch (Exception e) {
 				Log.e(LOG_TAG,
 						"Error when opening camera." + e.getLocalizedMessage());
@@ -119,14 +124,8 @@ public class CardScannerActivity extends Activity  {
 				if (isBackFacing(i)) {
 					try {
 						cam = Camera.open(i);
-						// Use Autofocus
-						Camera.Parameters parameters = cam.getParameters();
-						List<String> focusModes = parameters.getSupportedFocusModes();
-						if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE))
-						{
-						    parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
-						}
-						cam.setParameters(parameters);
+						cameraNo = i-1;
+						configureCamera(cam);
 						
 						return true; // if camera can be opend -> finish, else
 										// go on
@@ -141,6 +140,37 @@ public class CardScannerActivity extends Activity  {
 		return true;
 	}
 
+	
+	/**
+	 * Define additional settings for the camera.
+	 */
+	private void configureCamera(Camera camera) {
+		// Use Autofocus
+		Camera.Parameters parameters = camera.getParameters();
+		List<String> focusModes = parameters.getSupportedFocusModes();
+		if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE))
+		{
+		    parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+		}
+		
+		// Set the picture resolution to xxx (some resolution that works good for ocr)
+		List<Camera.Size> supportedResolutions = parameters.getSupportedPictureSizes();
+		int resolution = 12;
+		parameters.setPictureSize(supportedResolutions.get(resolution).width, supportedResolutions.get(resolution).height);
+		// Log.i("Configure Camera", "Picture resolution is " + supportedResolutions.get(resolution).width + " width and " + supportedResolutions.get(resolution).height + " height.");
+	
+		// Need to configure the orientation as else the picture orientation != what you see.
+		int orientation = 0;
+		android.hardware.Camera.CameraInfo info = new android.hardware.Camera.CameraInfo();
+	    android.hardware.Camera.getCameraInfo(cameraNo, info);
+	    orientation = (orientation + 45) / 90 * 90;
+		int rotation = (info.orientation + orientation) % 360; // Rotation needed for the back-facing camera
+		parameters.setRotation(rotation);
+		
+		camera.setParameters(parameters);	
+	}
+	
+	
 	/**
 	 * Check if a camera is front or back-facing. We need the back facing
 	 * camera.
