@@ -7,77 +7,98 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.List;
 
 import android.app.Activity;
+import android.content.res.AssetManager;
 import android.graphics.Bitmap;
-import android.graphics.Bitmap.CompressFormat;
 import android.graphics.BitmapFactory;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
 import android.hardware.Camera.PictureCallback;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 
+import com.googlecode.tesseract.android.TessBaseAPI;
 
 /**
- * Main class for the app.
- * 1. Starts the back-side-camera when the app is started (needs the preview class for that).
- * 2. Attaches an preview object to the gui.
- * 3. A picture is taken whenever the user touches the display. (finally: A pic should be taken every x seconds.)
- *  * 
+ * Main class for the app. 1. Starts the back-side-camera when the app is
+ * started (needs the preview class for that). 2. Attaches an preview object to
+ * the gui. 3. A picture is taken whenever the user touches the display.
+ * (finally: A pic should be taken every x seconds.) *
+ * 
  * @author Basti Hoffmeister
- *
+ * 
  */
 
-public class CardScannerActivity extends Activity  {
+public class CardScannerActivity extends Activity {
 
 	private Camera cam; // The camera to use. Initialized by initCamera
 	public int cameraNo; // Which camera is used?
 	private String LOG_TAG = "CardScannerActivity";
 	private Preview mPreview; // Preview object. Used for the display.
-	public static final int MEDIA_TYPE_IMAGE = 1; // 
+	public static final int MEDIA_TYPE_IMAGE = 1; //
+	private String DATA_PATH = Environment.getExternalStorageDirectory()
+			.toString() + "/CardScanner/";
 
 	/**
-	 * Callback to recognize whenever a picture is taken.
-	 * Uses the class PictureSaver to create a new file where the picture is stored.
+	 * Callback to recognize whenever a picture is taken. Uses the class
+	 * PictureSaver to create a new file where the picture is stored.
 	 */
 	private PictureCallback mPicture = new PictureCallback() {
 		@Override
 		public void onPictureTaken(byte[] data, Camera camera) {
 
-			File pictureFile = PictureSaver.getOutputMediaFile(MEDIA_TYPE_IMAGE);
-			
-			if (pictureFile == null){
-	            Log.d(LOG_TAG, "Error creating media file, check storage permissions: ");
-	            return;
-	        }
+			File pictureFile = PictureSaver
+					.getOutputMediaFile(MEDIA_TYPE_IMAGE);
 
-	        try {
-	        	Bitmap bitmapPicture = BitmapFactory.decodeByteArray(data, 0, data.length);
-	        	Bitmap small = PictureManipulator.crop(bitmapPicture, bitmapPicture.getWidth(), 200);
-	        	 
-	            FileOutputStream fos = new FileOutputStream(pictureFile);
-	            small.compress(Bitmap.CompressFormat.PNG, 90, fos);
-	            fos.close();
-	        } catch (FileNotFoundException e) {
-	            Log.d(LOG_TAG, "File not found: " + e.getMessage());
-	        } catch (IOException e) {
-	            Log.d(LOG_TAG, "Error accessing file: " + e.getMessage());
-	        }
+			if (pictureFile == null) {
+				Log.d(LOG_TAG,
+						"Error creating media file, check storage permissions: ");
+				return;
+			}
+
+			try {
+				Bitmap bitmapPicture = BitmapFactory.decodeByteArray(data, 0,
+						data.length);
+				Bitmap small = PictureManipulator.crop(bitmapPicture,
+						bitmapPicture.getWidth(), 200);
+
+				FileOutputStream fos = new FileOutputStream(pictureFile);
+				small.compress(Bitmap.CompressFormat.PNG, 90, fos);
+				fos.close();
+				small = small.copy(Bitmap.Config.ARGB_8888, true);
+				// OCR Part
+				TessBaseAPI baseApi = new TessBaseAPI();
+				baseApi.init(DATA_PATH, "deu");
+				baseApi.setImage(small);
+				String recognizedText = baseApi.getUTF8Text();
+				Log.d("HURAY", recognizedText);
+				baseApi.end();
+
+			} catch (FileNotFoundException e) {
+				Log.d(LOG_TAG, "File not found: " + e.getMessage());
+			} catch (IOException e) {
+				Log.d(LOG_TAG, "Error accessing file: " + e.getMessage());
+			}
 
 		}
 	};
 
 	/**
-	 * Initializing the app. Get the camera -> setup the preview (GUI). 
+	 * Initializing the app. Get the camera -> setup the preview (GUI).
 	 */
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_card_scanner);
+
+		copyTrainingData();
 
 		initCamera();
 
@@ -96,8 +117,8 @@ public class CardScannerActivity extends Activity  {
 	}
 
 	/**
-	 * Initialize the camera. Checks all cameras until a back-side-camera is found.
-	 * The public field <b> cam </b> stores the used camera.
+	 * Initialize the camera. Checks all cameras until a back-side-camera is
+	 * found. The public field <b> cam </b> stores the used camera.
 	 * 
 	 * @return true if a camera could be opened.
 	 */
@@ -110,7 +131,7 @@ public class CardScannerActivity extends Activity  {
 				cam = Camera.open();
 				cameraNo = 0;
 				configureCamera(cam);
-				
+
 				return true;
 			} catch (Exception e) {
 				Log.e(LOG_TAG,
@@ -124,9 +145,9 @@ public class CardScannerActivity extends Activity  {
 				if (isBackFacing(i)) {
 					try {
 						cam = Camera.open(i);
-						cameraNo = i-1;
+						cameraNo = i - 1;
 						configureCamera(cam);
-						
+
 						return true; // if camera can be opend -> finish, else
 										// go on
 					} catch (Exception e) {
@@ -140,7 +161,6 @@ public class CardScannerActivity extends Activity  {
 		return true;
 	}
 
-	
 	/**
 	 * Define additional settings for the camera.
 	 */
@@ -148,29 +168,39 @@ public class CardScannerActivity extends Activity  {
 		// Use Autofocus
 		Camera.Parameters parameters = camera.getParameters();
 		List<String> focusModes = parameters.getSupportedFocusModes();
-		if (focusModes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE))
-		{
-		    parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
+		if (focusModes
+				.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)) {
+			parameters
+					.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);
 		}
-		
-		// Set the picture resolution to xxx (some resolution that works good for ocr)
-		List<Camera.Size> supportedResolutions = parameters.getSupportedPictureSizes();
+
+		// Set the picture resolution to xxx (some resolution that works good
+		// for ocr)
+		List<Camera.Size> supportedResolutions = parameters
+				.getSupportedPictureSizes();
 		int resolution = 12;
-		parameters.setPictureSize(supportedResolutions.get(resolution).width, supportedResolutions.get(resolution).height);
-		// Log.i("Configure Camera", "Picture resolution is " + supportedResolutions.get(resolution).width + " width and " + supportedResolutions.get(resolution).height + " height.");
-	
-		// Need to configure the orientation as else the picture orientation != what you see.
+		parameters.setPictureSize(supportedResolutions.get(resolution).width,
+				supportedResolutions.get(resolution).height);
+		// Log.i("Configure Camera", "Picture resolution is " +
+		// supportedResolutions.get(resolution).width + " width and " +
+		// supportedResolutions.get(resolution).height + " height.");
+
+		// Need to configure the orientation as else the picture orientation !=
+		// what you see.
 		int orientation = 0;
 		android.hardware.Camera.CameraInfo info = new android.hardware.Camera.CameraInfo();
-	    android.hardware.Camera.getCameraInfo(cameraNo, info);
-	    orientation = (orientation + 45) / 90 * 90;
-		int rotation = (info.orientation + orientation) % 360; // Rotation needed for the back-facing camera
+		android.hardware.Camera.getCameraInfo(cameraNo, info);
+		orientation = (orientation + 45) / 90 * 90;
+		int rotation = (info.orientation + orientation) % 360; // Rotation
+																// needed for
+																// the
+																// back-facing
+																// camera
 		parameters.setRotation(rotation);
-		
-		camera.setParameters(parameters);	
+
+		camera.setParameters(parameters);
 	}
-	
-	
+
 	/**
 	 * Check if a camera is front or back-facing. We need the back facing
 	 * camera.
@@ -195,14 +225,61 @@ public class CardScannerActivity extends Activity  {
 		}
 	}
 
-	
 	/**
-	 * Release the camera whenever the user leaves the app. (IMPORTANT! Else a restart is needed to open the camera again.)
+	 * Release the camera whenever the user leaves the app. (IMPORTANT! Else a
+	 * restart is needed to open the camera again.)
 	 */
 	@Override
 	protected void onPause() {
 		super.onPause();
 		releaseCamera();
+	}
+
+	/**
+	 * Needed to copy the training data from the apps-asset folder to the
+	 * sd-card. Done when app starts.
+	 * 
+	 */
+	private void copyTrainingData() {
+
+		File dir = new File(DATA_PATH + "tessdata/");
+        if (!dir.exists()) {
+            if (!dir.mkdirs()) {
+                Log.d(LOG_TAG, "ERROR: Creation of directory " + DATA_PATH
+                        + " on sdcard failed");
+                return;
+            } else {
+                Log.d(LOG_TAG, "Created directory " + DATA_PATH + " on sdcard");
+            }
+        }
+        
+        if (!(new File(DATA_PATH + "tessdata/deu.traineddata")).exists()) {
+            try {
+
+                AssetManager assetManager = getAssets();
+                InputStream in = assetManager.open("tessdata/deu.traineddata");
+                OutputStream out = new FileOutputStream(DATA_PATH
+                        + "tessdata/deu.traineddata");
+
+                copyFile(in, out);
+                in.close();
+                out.close();
+
+                Log.d(LOG_TAG, "Copied deu.traineddata");
+            } catch (IOException e) {
+                Log.e(LOG_TAG, "Was unable to copy deu.traineddata " + e.toString());
+                e.printStackTrace();
+            }
+        }
+		
+	}
+
+	private void copyFile(InputStream in, OutputStream out) throws IOException {
+		byte[] buffer = new byte[1024];
+		int read;
+		while ((read = in.read(buffer)) != -1) {
+			out.write(buffer, 0, read);
+		}
 	}
 
 }
