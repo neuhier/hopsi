@@ -4,7 +4,6 @@ import hop.si.box.cardscanner.util.PictureManipulator;
 import hop.si.box.cardscanner.util.PictureSaver;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,6 +22,9 @@ import android.os.Environment;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.ImageView.ScaleType;
+import android.widget.Toast;
 
 import com.googlecode.tesseract.android.TessBaseAPI;
 
@@ -33,6 +35,8 @@ import com.googlecode.tesseract.android.TessBaseAPI;
  * (finally: A pic should be taken every x seconds.) *
  * 
  * @author Basti Hoffmeister
+ * 
+ * Nur ein Rechteck der Kamera aufnehmen: http://adblogcat.com/a-camera-preview-with-a-bounding-box-like-google-goggles/
  * 
  */
 
@@ -69,24 +73,23 @@ public class CardScannerActivity extends Activity {
 				Bitmap small = PictureManipulator.crop(bitmapPicture,
 						bitmapPicture.getWidth(), 200);
 
-				FileOutputStream fos = new FileOutputStream(pictureFile);
-				small.compress(Bitmap.CompressFormat.PNG, 90, fos);
-				fos.close();
 				small = small.copy(Bitmap.Config.ARGB_8888, true);
 				// OCR Part
 				TessBaseAPI baseApi = new TessBaseAPI();
 				baseApi.init(DATA_PATH, "deu");
 				baseApi.setImage(small);
 				String recognizedText = baseApi.getUTF8Text();
-				Log.d("HURAY", recognizedText);
+// Do something with the recognized text
+				Toast.makeText(getApplicationContext(), "OCRed: " + recognizedText, Toast.LENGTH_LONG).show();
 				baseApi.end();
-
-			} catch (FileNotFoundException e) {
-				Log.d(LOG_TAG, "File not found: " + e.getMessage());
-			} catch (IOException e) {
-				Log.d(LOG_TAG, "Error accessing file: " + e.getMessage());
+// Reset the preview
+				camera.startPreview();
+// Start Autofocusing
+				camera.autoFocus(mPreview);
+			} catch (Exception e) {
+				Log.d(LOG_TAG, e.getLocalizedMessage());
+				e.printStackTrace();
 			}
-
 		}
 	};
 
@@ -105,7 +108,12 @@ public class CardScannerActivity extends Activity {
 		mPreview = new Preview(this, cam);
 		FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
 		preview.addView(mPreview);
-
+		// cam.autoFocus(mPreview); // Start Autofocusing
+		
+		//
+		ImageView blackCurtain = (ImageView) findViewById(R.id.camera_curtain);
+		blackCurtain.setScaleType(ScaleType.CENTER_INSIDE);
+		
 		// Add a listener to the surface
 		preview.setOnClickListener(new View.OnClickListener() {
 			@Override
@@ -181,9 +189,9 @@ public class CardScannerActivity extends Activity {
 		int resolution = 12;
 		parameters.setPictureSize(supportedResolutions.get(resolution).width,
 				supportedResolutions.get(resolution).height);
-		// Log.i("Configure Camera", "Picture resolution is " +
-		// supportedResolutions.get(resolution).width + " width and " +
-		// supportedResolutions.get(resolution).height + " height.");
+		 Log.i("Configure Camera", "Picture resolution is " +
+		 supportedResolutions.get(resolution).width + " width and " +
+		 supportedResolutions.get(resolution).height + " height.");
 
 		// Need to configure the orientation as else the picture orientation !=
 		// what you see.
